@@ -26,6 +26,20 @@ def gen_hashes(root: str) -> dict[str, str]:
     return res
 
 
+def single_hash(hashes: dict) -> str:
+    l = []
+    for k in hashes:
+        s = hashlib.sha256(k.encode()).hexdigest()
+        if hashes[k]:
+            s += f"-{hashes[k]}"
+
+        l.append(s)
+    l = sorted(l)
+    s = ''.join([si+"--" for si in l])
+    h = hashlib.sha256(s.encode()).hexdigest()
+    return h
+
+
 def checkout(url: str, workdir, commit: str = None):
 
     subprocess.run(["git", "clone", url, "build"], check=True, cwd=workdir)
@@ -43,22 +57,25 @@ def build_in_workdir(workdir):
 
     output_dir = os.path.join(builddir, "dist")
     hashes = gen_hashes(output_dir)
+    hash = single_hash(hashes)
     return {
+        "builddir": builddir,
         "install_log": install_log,
         "build_log": build_log,
-        "hashes": hashes
+        "hashes": hashes,
+        "hash": hash,
     }
 
 
-def build(url: str, commit: str = None,rmwork=True):
-    tmpdir = subprocess.run(["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0 ]
+def build(url: str, commit: str = None, rmwork=True):
+    tmpdir = subprocess.run(
+        ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
-    checkout(url,tmpdir,commit)
+    checkout(url, tmpdir, commit)
     res = build_in_workdir(tmpdir)
     if rmwork:
-        subprocess.run(["rm","-rf",tmpdir],check=True)
+        subprocess.run(["rm", "-rf", tmpdir], check=True)
     return res
-
 
 
 if __name__ == "__main__":
