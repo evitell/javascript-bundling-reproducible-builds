@@ -7,14 +7,18 @@ import hashlib
 def gen_hashes(root: str) -> dict[str, str]:
     res = {}
     for rootdir, dirs, files in os.walk(root):
+        # FIXME: this is not always true
+        # if not (rootdir == root):
+        #     raise Exception("Bad assumption")
         for f in files:
+
             full_path = os.path.join(rootdir, f)
-            with open(full_path, 'rb') as f:
-                h = hashlib.sha256(f.read()).hexdigest()
+            with open(full_path, 'rb') as tmpf:
+                h = hashlib.sha256(tmpf.read()).hexdigest()
             if full_path in res:
                 raise Exception(
                     f"Tried to insert path {full_path} that already exists")
-            res[full_path] = h
+            res[f] = h
         for d in dirs:
             # This may not be necessary, but hypothetically a package could create an empty directory
             full_path = os.path.join(rootdir, d)
@@ -22,7 +26,7 @@ def gen_hashes(root: str) -> dict[str, str]:
             if full_path in res:
                 raise Exception(
                     f"Tried to insert path {full_path} that already exists")
-            res[full_path] = None
+            res[d] = None
     return res
 
 
@@ -81,6 +85,7 @@ def build(url: str, commit: str = None, rmwork=True):
 if __name__ == "__main__":
     # print(gen_hashes("."))
 
-    d = build("https://github.com/lodash/lodash")
+    d = build("https://github.com/lodash/lodash",
+              "f299b52f39486275a9e6483b60a410e06520c538")
     for elem in d:
         print(elem, d[elem])
