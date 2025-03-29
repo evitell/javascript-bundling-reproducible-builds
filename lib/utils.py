@@ -7,9 +7,7 @@ import hashlib
 def gen_hashes(root: str) -> dict[str, str]:
     res = {}
     for rootdir, dirs, files in os.walk(root):
-        # FIXME: this is not always true
-        # if not (rootdir == root):
-        #     raise Exception("Bad assumption")
+
         for f in files:
 
             full_path = os.path.join(rootdir, f)
@@ -18,7 +16,8 @@ def gen_hashes(root: str) -> dict[str, str]:
             if full_path in res:
                 raise Exception(
                     f"Tried to insert path {full_path} that already exists")
-            res[f] = h
+            relative_path = os.path.relpath(full_path, rootdir)
+            res[f] = relative_path
         for d in dirs:
             # This may not be necessary, but hypothetically a package could create an empty directory
             full_path = os.path.join(rootdir, d)
