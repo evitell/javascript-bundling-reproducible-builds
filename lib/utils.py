@@ -82,9 +82,5 @@ def build(url: str, commit: str = None, rmwork=True):
 
 
 if __name__ == "__main__":
-    # print(gen_hashes("."))
+    pass
 
-    d = build("https://github.com/lodash/lodash",
-              "f299b52f39486275a9e6483b60a410e06520c538")
-    for elem in d:
-        print(elem, d[elem])
