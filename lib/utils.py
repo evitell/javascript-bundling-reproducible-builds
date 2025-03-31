@@ -4,6 +4,12 @@ import subprocess
 import hashlib
 
 
+def get_shellpath():
+    shelldir = os.path.dirname(__file__)
+    shellpath = os.path.join(shelldir, "wrapped-shell.sh")
+    return shellpath
+
+
 def gen_hashes(root: str) -> dict[str, str]:
     res = {}
     for rootdir, dirs, files in os.walk(root):
@@ -51,12 +57,18 @@ def checkout(url: str, workdir, commit: str = None):
                        cwd=os.path.join(workdir, "build"))
 
 
-def build_in_workdir(workdir):
+def build_in_workdir(workdir, log_shell=False):
     builddir = os.path.join(workdir, "build")
+    if log_shell:
+        shell = get_shellpath()
+        shell_args = [f"--script-shell={shell}"]
+    else:
+        shell_args = []
+
     install_log = subprocess.run(
-        ["npm", "install"], check=True, cwd=builddir, capture_output=True)
+        ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True)
     build_log = subprocess.run(
-        ["npm", "run", "build"], check=True, cwd=builddir)
+        ["npm", "run"] + shell_args + ["build"], check=True, cwd=builddir)
 
     output_dir = os.path.join(builddir, "dist")
     hashes = gen_hashes(output_dir)
@@ -70,17 +82,17 @@ def build_in_workdir(workdir):
     }
 
 
-def build(url: str, commit: str = None, rmwork=True):
+def build(url: str, commit: str = None, rmwork=True, log_shell=False):
     tmpdir = subprocess.run(
         ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
     checkout(url, tmpdir, commit)
-    res = build_in_workdir(tmpdir)
+    res = build_in_workdir(tmpdir, log_shell=log_shell)
     if rmwork:
         subprocess.run(["rm", "-rf", tmpdir], check=True)
     return res
 
 
 if __name__ == "__main__":
-    pass
-
+    d = os.path.dirname(__file__)
+    print(d)
