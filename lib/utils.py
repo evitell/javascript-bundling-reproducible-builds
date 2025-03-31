@@ -3,6 +3,11 @@ import os
 import subprocess
 import hashlib
 
+def decode_or_none(output):
+    if output:
+        return output.decode()
+    return None
+
 
 def get_shellpath() -> str:
     shelldir = os.path.dirname(__file__)
