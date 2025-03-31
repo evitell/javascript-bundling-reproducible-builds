@@ -4,7 +4,7 @@ import subprocess
 import hashlib
 
 
-def get_shellpath():
+def get_shellpath() -> str:
     shelldir = os.path.dirname(__file__)
     shellpath = os.path.join(shelldir, "wrapped-shell.sh")
     return shellpath
@@ -49,7 +49,7 @@ def single_hash(hashes: dict) -> str:
     return h
 
 
-def checkout(url: str, workdir, commit: str = None):
+def checkout(url: str, workdir: str, commit: str = None):
 
     subprocess.run(["git", "clone", url, "build"], check=True, cwd=workdir)
     if not (commit is None):
@@ -57,7 +57,7 @@ def checkout(url: str, workdir, commit: str = None):
                        cwd=os.path.join(workdir, "build"))
 
 
-def build_in_workdir(workdir, log_shell=False):
+def build_in_workdir(workdir: str, log_shell: bool = False) -> dict:
     builddir = os.path.join(workdir, "build")
     if log_shell:
         shell = get_shellpath()
@@ -82,7 +82,7 @@ def build_in_workdir(workdir, log_shell=False):
     }
 
 
-def build(url: str, commit: str = None, rmwork=True, log_shell=False):
+def build(url: str, commit: str = None, rmwork=True, log_shell=False) -> dict:
     tmpdir = subprocess.run(
         ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
