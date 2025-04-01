@@ -2,6 +2,8 @@
 import os
 import subprocess
 import hashlib
+import json
+
 
 def decode_or_none(output):
     if output:
@@ -13,6 +15,11 @@ def get_shellpath() -> str:
     shelldir = os.path.dirname(__file__)
     shellpath = os.path.join(shelldir, "wrapped-shell.sh")
     return shellpath
+
+
+def copy_dict(d: dict) -> dict:
+    # not exact copy but environment variables are just strings anyway
+    return json.loads(json.dumps(d))
 
 
 def gen_hashes(root: str) -> dict[str, str]:
@@ -62,7 +69,7 @@ def checkout(url: str, workdir: str, commit: str = None):
                        cwd=os.path.join(workdir, "build"))
 
 
-def build_in_workdir(workdir: str, log_shell: bool = False) -> dict:
+def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True) -> dict:
     builddir = os.path.join(workdir, "build")
     if log_shell:
         shell = get_shellpath()
@@ -70,10 +77,17 @@ def build_in_workdir(workdir: str, log_shell: bool = False) -> dict:
     else:
         shell_args = []
 
+    env = {}
+    for k in os.environ.keys():
+        env[k] = copy_dict(os.environ[k])
+    if verbose:
+        # https://stackoverflow.com/questions/36276011/node-command-line-verbose-output
+        env["NODE_DEBUG"] = "cluster,net,http,fs,tls,module,timers"
+
     install_log = subprocess.run(
-        ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True)
+        ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True, env=env)
     build_log = subprocess.run(
-        ["npm", "run"] + shell_args + ["build"], check=True, cwd=builddir)
+        ["npm", "run"] + shell_args + ["build"], check=True, cwd=builddir, env=env)
 
     output_dir = os.path.join(builddir, "dist")
     hashes = gen_hashes(output_dir)
@@ -87,17 +101,17 @@ def build_in_workdir(workdir: str, log_shell: bool = False) -> dict:
     }
 
 
-def build(url: str, commit: str = None, rmwork=True, log_shell=False) -> dict:
+def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True) -> dict:
     tmpdir = subprocess.run(
         ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
     checkout(url, tmpdir, commit)
-    res = build_in_workdir(tmpdir, log_shell=log_shell)
+    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
     if rmwork:
         subprocess.run(["rm", "-rf", tmpdir], check=True)
     return res
 
 
 if __name__ == "__main__":
-    d = os.path.dirname(__file__)
+    d = copy_dict({"hello": 1})
     print(d)
