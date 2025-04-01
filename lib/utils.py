@@ -87,7 +87,7 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     install_log = subprocess.run(
         ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True, env=env)
     build_log = subprocess.run(
-        ["npm", "run"] + shell_args + ["build"], check=True, cwd=builddir, env=env)
+        ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
 
     output_dir = os.path.join(builddir, "dist")
     hashes = gen_hashes(output_dir)
@@ -106,7 +106,7 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
         ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
     checkout(url, tmpdir, commit)
-    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
+    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose) 
     if rmwork:
         subprocess.run(["rm", "-rf", tmpdir], check=True)
     return res
