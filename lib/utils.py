@@ -86,9 +86,27 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
 
     install_log = subprocess.run(
         ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True, env=env)
-    build_log = subprocess.run(
-        ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
+    
+    script_out = subprocess.run(
+        ["npm", "run"] + shell_args + [], check=True, capture_output=True, cwd=builddir).stdout.decode()
+    
+    scripts=[]
+    for elem in script_out.split("\n"):
+        if elem.startswith("available via"):
+            continue
+        print(f"elem[:5]={elem[:5]}")
+        if elem[0:2]==' '*2 and elem[3]!=' ':
+            tmp = elem[2:].split(' ')
+            script = tmp[0]
+            scripts.append(script)
 
+    if "build" in scripts:
+        build_log = subprocess.run(
+            ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
+    else:
+        print("no build script found, skipping")
+        build_log = None
+    
     output_dir = os.path.join(builddir, "dist")
     hashes = gen_hashes(output_dir)
     hash = single_hash(hashes)
