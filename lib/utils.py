@@ -47,6 +47,30 @@ def gen_hashes(root: str) -> dict[str, str]:
     return res
 
 
+def compare_dirs(d1: dict[str, str], d2: dict[str, str]) -> dict[str, list[str]]:
+    removed = []  # only in d2
+    equal = []  # same in d1 and d2
+    changed = []  # exists in both d1 and in d2 but has different content
+    added = []  # only in d2
+    for k1 in d1.keys():
+        if k1 in d2.keys():
+            if d1[k1] == d2[k1]:
+                equal.append(k1)
+            else:
+                changed.append(k1)
+        else:
+            removed.append(k1)
+    for k2 in d2.keys():
+        if not k2 in d1.keys():
+            added.append(k2)
+    return {
+        "removed": removed,
+        "equal": equal,
+        "changed": changed,
+        "added": added,
+    }
+
+
 def single_hash(hashes: dict) -> str:
     l = []
     for k in hashes:
@@ -84,18 +108,34 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         # https://stackoverflow.com/questions/36276011/node-command-line-verbose-output
         env["NODE_DEBUG"] = "cluster,net,http,fs,tls,module,timers"
 
+    install_cmd = "install-clean"
+    has_lockfile = os.path.isfile(os.path.join(builddir, "package-lock.json"))
+    if not has_lockfile:
+        # TODO: perhaps the package should be skipped altogether in this case?
+        install_cmd = "install"
+    preinstall_hashes = gen_hashes(builddir)
     install_log = subprocess.run(
-        ["npm", "install"]+shell_args, check=True, cwd=builddir, capture_output=True, env=env)
-    
+        ["npm", install_cmd]+shell_args, check=False, cwd=builddir, capture_output=True, env=env)
+    if install_log.returncode != 0:
+        print(install_log.stdout.decode())
+        print(install_log.stderr.decode())
+        raise subprocess.CalledProcessError(
+            returncode=install_log.returncode, cmd=install_log.args)
+
     script_out = subprocess.run(
-        ["npm", "run"] + shell_args + [], check=True, capture_output=True, cwd=builddir).stdout.decode()
-    
-    scripts=[]
-    for elem in script_out.split("\n"):
+        ["npm", "run"] + shell_args + [], check=False, capture_output=True, cwd=builddir)
+    if script_out.returncode != 0:
+        print(script_out.stdout.decode())
+        print(script_out.stderr.decode())
+        raise subprocess.CalledProcessError(
+            returncode=script_out.returncode, cmd=script_out.args)
+
+    scripts = []
+    for elem in script_out.stdout.decode().split("\n"):
         if elem.startswith("available via"):
             continue
         print(f"elem[:5]={elem[:5]}")
-        if elem[0:2]==' '*2 and elem[3]!=' ':
+        if elem[0:2] == ' '*2 and elem[3] != ' ':
             tmp = elem[2:].split(' ')
             script = tmp[0]
             scripts.append(script)
@@ -103,19 +143,36 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     if "build" in scripts:
         build_log = subprocess.run(
             ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
+
+        if build_log.returncode != 0:
+            print(build_log.stdout.decode())
+            print(build_log.stderr.decode())
+            raise subprocess.CalledProcessError(
+                returncode=build_log.returncode, cmd=build_log.args)
+        prebuild_hashes = gen_hashes(workdir)
+
     else:
         print("no build script found, skipping")
         build_log = None
-    
+        prebuild_hashes = None
+
     output_dir = os.path.join(builddir, "dist")
+    post_hashes = gen_hashes(builddir)
     hashes = gen_hashes(output_dir)
     hash = single_hash(hashes)
     return {
         "builddir": builddir,
+        "scripts": scripts,
+        "has_lockfile": has_lockfile,
         "install_log": install_log,
         "build_log": build_log,
         "hashes": hashes,
         "hash": hash,
+        "stage_hashes": {
+            "preinstall_hashes": preinstall_hashes,
+            "prebuild_hashes": prebuild_hashes,
+            "post_hashes": post_hashes,
+        }
     }
 
 
@@ -124,7 +181,7 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
         ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
     print(tmpdir)
     checkout(url, tmpdir, commit)
-    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose) 
+    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
     if rmwork:
         subprocess.run(["rm", "-rf", tmpdir], check=True)
     return res
