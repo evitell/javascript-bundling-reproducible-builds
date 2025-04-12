@@ -70,7 +70,8 @@ def compare_dirs(d1: dict[str, str], d2: dict[str, str]) -> dict[str, list[str]]
         "added": added,
     }
 
-def display_diff(diff:dict[str,list[str]]):
+
+def display_diff(diff: dict[str, list[str]]):
     print("Removed:")
     for r in diff["removed"]:
         print(f"\t{r}")
@@ -82,8 +83,7 @@ def display_diff(diff:dict[str,list[str]]):
     print("Added:")
     for a in diff["added"]:
         print(f"\t{a}")
-        
-        
+
 
 def single_hash(hashes: dict) -> str:
     l = []
