@@ -34,7 +34,7 @@ def gen_hashes(root: str) -> dict[str, str]:
             if full_path in res:
                 raise Exception(
                     f"Tried to insert path {full_path} that already exists")
-            relative_path = os.path.relpath(full_path, rootdir)
+            relative_path = os.path.relpath(full_path, root)
             res[relative_path] = h
         for d in dirs:
             # This may not be necessary, but hypothetically a package could create an empty directory
@@ -43,7 +43,8 @@ def gen_hashes(root: str) -> dict[str, str]:
             if full_path in res:
                 raise Exception(
                     f"Tried to insert path {full_path} that already exists")
-            res[d] = None
+            relative_path = os.path.relpath(full_path, root)
+            res[relative_path] = None
     return res
 
 
