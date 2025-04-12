@@ -4,7 +4,7 @@ import hashlib
 import json
 import urllib3
 import os
-
+import multiprocessing
 
 def get_package_names(file: str = "data/package_names.txt") -> list[str]:
     with open(file, encoding="utf-8") as f:
@@ -51,24 +51,20 @@ def test_get_stats():
     stats = get_stats(name)
     print(stats)
 
-
-if __name__ == "__main__":
-    start = 1000
-    stop = 3000
-    names = get_package_names()
-    nnames = len(names)
-    for index, name in enumerate(names):
-        s = (f"{index}/{nnames}: {name}")
+def full_fetch(name):
+        s = ""
         filename = hashlib.sha256(name.encode()).hexdigest()
         file_path = f"data/by-name/{filename}"
         failed_file_path = f"data/failed-by-name/{filename}"
 
         if os.path.isfile(file_path):
             print(s + " (previously fetched)")
-            continue
+            # continue
+            return
         elif os.path.isfile(failed_file_path):
             print(s + " (previously failed)")
-            continue
+            # continue
+            return
         try:
             print(s + " (fetching)")
 
@@ -91,3 +87,20 @@ if __name__ == "__main__":
 
             raise e 
             raise Exception
+        return
+
+
+if __name__ == "__main__":
+    start = 314552
+    stop = 3000
+    names = get_package_names()
+    nnames = len(names)
+    # https://www.kth.se/blogs/pdc/2019/02/parallel-programming-in-python-multiprocessing-part-1/
+    pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+    pool.map(full_fetch, names[start:])
+    # for index, name in enumerate(names[start:]):
+    #     s = (f"{index}/{nnames}: {name}")
+    #     print(s,end="")
+    #     full_fetch(name)
+
+    
