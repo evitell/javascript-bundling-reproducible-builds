@@ -72,18 +72,30 @@ def compare_dirs(d1: dict[str, str], d2: dict[str, str]) -> dict[str, list[str]]
     }
 
 
-def display_diff(diff: dict[str, list[str]]):
+def startswith_any(s: str, arr: list[str]):
+    for si in arr:
+        if s.startswith(si):
+            return True
+    return False
+
+
+def display_diff(diff: dict[str, list[str]], ignore=None):
+    if ignore is None:
+        ignore = []
     print("Removed:")
     for r in diff["removed"]:
-        print(f"\t{r}")
+        if not startswith_any(r, ignore):
+            print(f"\t{r}")
 
     print("Changed:")
     for c in diff["changed"]:
-        print(f"\t{c}")
+        if not startswith_any(c, ignore):
+            print(f"\t{c}")
 
     print("Added:")
     for a in diff["added"]:
-        print(f"\t{a}")
+        if not startswith_any(a, ignore):
+            print(f"\t{a}")
 
 
 def single_hash(hashes: dict) -> str:

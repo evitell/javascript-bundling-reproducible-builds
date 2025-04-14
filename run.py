@@ -11,8 +11,8 @@ if __name__ == "__main__":
     # commit = "cd7d4397c398a3f3ecadeaf9ef6ac1377bd414c4"
     # url = "https://github.com/lodash/lodash"
     # commit = "f299b52f39486275a9e6483b60a410e06520c538"
-    start = 0
-    stop = 1
+    start = 1
+    stop = start+1
     for example in examples[start:stop]:
         url = example["url"]
         commit = example["commit"]
@@ -33,6 +33,6 @@ if __name__ == "__main__":
 
         diff = utils.compare_dirs(
             data["stage_hashes"]["preinstall_hashes"], data["stage_hashes"]["post_hashes"])
-        utils.display_diff(diff)
+        utils.display_diff(diff, ignore=["node_modules/"])
         # print(data["preinstall_hashes"])
         print(data.keys())
