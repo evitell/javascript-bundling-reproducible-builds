@@ -6,6 +6,7 @@ import urllib3
 import os
 import multiprocessing
 
+
 def get_package_names(file: str = "data/package_names.txt") -> list[str]:
     with open(file, encoding="utf-8") as f:
         names = [name.strip() for name in f.readlines()]
@@ -51,46 +52,102 @@ def test_get_stats():
     stats = get_stats(name)
     print(stats)
 
-def full_fetch(name):
-        s = ""
-        filename = hashlib.sha256(name.encode()).hexdigest()
-        file_path = f"data/by-name/{filename}"
-        failed_file_path = f"data/failed-by-name/{filename}"
 
-        if os.path.isfile(file_path):
-            print(s + " (previously fetched)")
-            # continue
-            return
-        elif os.path.isfile(failed_file_path):
-            print(s + " (previously failed)")
-            # continue
-            return
+def get_failed_file_path(name):
+    filename = hashlib.sha256(name.encode()).hexdigest()
+    failed_file_path = f"data/failed-by-name/{filename}"
+    return failed_file_path
+
+
+def get_file_path(name):
+    filename = hashlib.sha256(name.encode()).hexdigest()
+    file_path = f"data/by-name/{filename}"
+    return file_path
+
+
+def get_package_info(name):
+    file_path = get_file_path(name)
+    failed_file_path = get_failed_file_path(name)
+    if os.path.isfile(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    elif os.path.is_file(failed_file_path):
+        return None
+    else:
+        raise Exception(f"{name} has never been fetched")
+
+
+def get_all_package_info(fail=False, start=0, stop=-1):
+    names = get_package_names()
+    data = []
+    for name in names[start:stop]:
         try:
-            print(s + " (fetching)")
-
-            data = get_stats(name)
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
-        except requests.HTTPError:
-
-
-            with open(failed_file_path, "w", encoding="utf-8") as f:
-                pass
-        except urllib3.exceptions.ProtocolError:
-
-            with open(failed_file_path, "w", encoding="utf-8") as f:
-                pass
-
+            info = get_package_info(name)
+            if info:
+                data.append(info)
         except Exception as e:
-            print(f"failed to fetch {name}")
-            print(e)
+            if fail:
+                raise e
+    return data
 
-            raise e 
-            raise Exception
+
+def get_most_popular_packages(pkgs: list[dict], topn=None, min_downloads=None):
+    if (topn is None) and (min_downloads is None):
+        raise Exception("Either topn or min_downloads must be specified")
+    elif (not topn is None) and (not min_downloads is None):
+        raise Exceptio("Must specify exactly one of topn and min_downloads")
+    pkgs_sorted = sorted(pkgs, key=lambda x: x["downloads"], reverse=True)
+    if topn:
+        return pkgs_sorted[:topn]
+    n = 0
+    while n < len(pkgs_sorted):
+        dl = pkgs_sorted[n]["downloads"]
+        if dl < min_downloads:
+            break
+        n += 1
+    return pkgs_sorted[:n]
+
+
+def full_fetch(name):
+    s = ""
+    filename = hashlib.sha256(name.encode()).hexdigest()
+    file_path = f"data/by-name/{filename}"
+    failed_file_path = f"data/failed-by-name/{filename}"
+
+    if os.path.isfile(file_path):
+        print(s + " (previously fetched)")
+        # continue
         return
+    elif os.path.isfile(failed_file_path):
+        print(s + " (previously failed)")
+        # continue
+        return
+    try:
+        print(s + " (fetching)")
+
+        data = get_stats(name)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except requests.HTTPError:
+
+        with open(failed_file_path, "w", encoding="utf-8") as f:
+            pass
+    except urllib3.exceptions.ProtocolError:
+
+        with open(failed_file_path, "w", encoding="utf-8") as f:
+            pass
+
+    except Exception as e:
+        print(f"failed to fetch {name}")
+        print(e)
+
+        raise e
+        raise Exception
+    return
 
 
-if __name__ == "__main__":
+def fetch_all():
     start = 314552
     stop = 3000
     names = get_package_names()
@@ -103,4 +160,6 @@ if __name__ == "__main__":
     #     print(s,end="")
     #     full_fetch(name)
 
-    
+
+if __name__ == "__main__":
+    fetch_all()
