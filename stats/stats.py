@@ -78,10 +78,12 @@ def get_package_info(name):
         raise Exception(f"{name} has never been fetched")
 
 
-def get_all_package_info(fail=False, start=0, stop=-1):
+def get_all_package_info(fail=False, start=0, stop=-1,log=True):
     names = get_package_names()
     data = []
-    for name in names[start:stop]:
+    for index,name in enumerate(names[start:stop]):
+        if log:
+            print(f"processing {index}/{len(names)}")
         try:
             info = get_package_info(name)
             if info:
