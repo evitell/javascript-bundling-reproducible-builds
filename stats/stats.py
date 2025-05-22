@@ -1,8 +1,15 @@
 import subprocess
-import requests
+try:
+    import requests
+except Exception:
+    print(f"WARNING: could not import requests")
 import hashlib
 import json
-import urllib3
+try:
+    import urllib3
+except Exception:
+    print(f"WARNING: could not import urllib3")
+
 import os
 import multiprocessing
 
@@ -71,6 +78,7 @@ def get_package_info(name):
     if os.path.isfile(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        data["name"] = name
         return data
     elif os.path.is_file(failed_file_path):
         return None
@@ -162,6 +170,11 @@ def fetch_all():
     #     print(s,end="")
     #     full_fetch(name)
 
+def get_detailed_stats(package_name:str, version="latest")->dict:
+    url = f"https://registry.npmjs.org/{package_name}/latest"
+    r = requests.get(url)
+    data = r.json()
+    return data
 
 if __name__ == "__main__":
     fetch_all()
