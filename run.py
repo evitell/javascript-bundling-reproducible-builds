@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 from lib import utils
+from github_stats import github_stats
 import tomllib
+import subprocess
 
-
-if __name__ == "__main__":
+def build_examples():
     with open("data/examples.toml", "rb") as f:
         examples = tomllib.load(f)["pkgs"]
     # url = "https://github.com/expressjs/express.git"
@@ -36,3 +37,32 @@ if __name__ == "__main__":
         utils.display_diff(diff, ignore=["node_modules/"])
         # print(data["preinstall_hashes"])
         print(data.keys())
+
+
+
+if __name__ == "__main__":
+    MAX=20
+    gh_repos = github_stats.get_fetched_data()
+    failed = 0
+    succeded = 0
+    for index, repo in enumerate(gh_repos):
+        url = repo["clone_url"]
+        print(url)
+        # print(repo)
+        # exit()
+        try:
+            data = utils.build(url,
+                               log_shell=True, rmwork=True, verbose=False)
+            print(data["hash"])
+            succeded += 1
+        except subprocess.CalledProcessError:
+            print(f"failed to build {url}")
+            failed += 1
+        except FileNotFoundError as e:
+            print(e)
+            failed += 1
+
+        if index > MAX:
+            break
+
+    print(f"Finished with {succeded} succeded and {failed} failed builds")
