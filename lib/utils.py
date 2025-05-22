@@ -114,7 +114,7 @@ def single_hash(hashes: dict) -> str:
 
 def checkout(url: str, workdir: str, commit: str = None):
 
-    subprocess.run(["git", "clone", url, "build"], check=True, cwd=workdir)
+    subprocess.run(["git", "clone", "--depth=1", url, "build"], check=True, cwd=workdir)
     if not (commit is None):
         subprocess.run(["git", "checkout", commit], check=True,
                        cwd=os.path.join(workdir, "build"))
