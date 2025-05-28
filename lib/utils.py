@@ -149,6 +149,9 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         raise subprocess.CalledProcessError(
             returncode=install_log.returncode, cmd=install_log.args)
 
+    install_log_out = install_log.stdout.decode()
+    install_log_err = install_log.stderr.decode()
+
     script_out = subprocess.run(
         ["npm", "run"] + shell_args + [], check=False, capture_output=True, cwd=builddir)
     if script_out.returncode != 0:
@@ -177,22 +180,48 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
             raise subprocess.CalledProcessError(
                 returncode=build_log.returncode, cmd=build_log.args)
         prebuild_hashes = gen_hashes(workdir)
+        build_log_out = build_log.stdout.decode()
+        build_log_err = build_log.stderr.decode()
 
     else:
         print("no build script found, skipping")
         build_log = None
+        build_log_out = None
+        build_log_err = None
         prebuild_hashes = None
 
     output_dir = os.path.join(builddir, "dist")
     post_hashes = gen_hashes(builddir)
     hashes = gen_hashes(output_dir)
     hash = single_hash(hashes)
+
+    dev_deps = None
+    deps = None
+    pkg_json = f"{builddir}/package.json"
+
+    has_pkg_json = os.path.isfile(pkg_json)
+    if has_pkg_json:
+        with open(pkg_json, encoding="utf-8") as f:
+            pkg_json_data = json.load(f)
+            if "devDependencies" in pkg_json_data.keys():
+                dev_deps = pkg_json_data["devDependencies"]
+
+            if "dependencies" in pkg_json_data.keys():
+                deps = pkg_json_data["dependencies"]
+
     return {
         "builddir": builddir,
         "scripts": scripts,
         "has_lockfile": has_lockfile,
+        "has_pkg_json": has_pkg_json,
+        "dependencies": deps,
+        "dev_dependencies": dev_deps,
         "install_log": install_log,
+        "install_log_out": install_log_out,
+        "install_log_err": install_log_err,
         "build_log": build_log,
+        "build_log_out": build_log_out,
+        "build_log_err": build_log_err,
         "hashes": hashes,
         "hash": hash,
         "stage_hashes": {

@@ -4,6 +4,7 @@ from lib import utils
 from github_stats import github_stats
 import tomllib
 import subprocess
+import json
 
 def build_examples():
     with open("data/examples.toml", "rb") as f:
@@ -46,7 +47,10 @@ if __name__ == "__main__":
     failed = 0
     succeded = 0
     for index, repo in enumerate(gh_repos):
+        # print(repo)
+        # exit()
         url = repo["clone_url"]
+        name = repo["name"]
         print(url)
         # print(repo)
         # exit()
@@ -54,6 +58,12 @@ if __name__ == "__main__":
             data = utils.build(url,
                                log_shell=True, rmwork=True, verbose=False)
             print(data["hash"])
+
+            # Not json serializeable
+            data["install_log"] = None
+            data["build_log"] = None
+            with open(f"data/builds/{name}.json", "w", encoding="utf-8") as f:
+                json.dump(data,f)
             succeded += 1
         except subprocess.CalledProcessError:
             print(f"failed to build {url}")
@@ -61,6 +71,8 @@ if __name__ == "__main__":
         except FileNotFoundError as e:
             print(e)
             failed += 1
+        except KeyboardInterrupt:
+            break
 
         if index > MAX:
             break
