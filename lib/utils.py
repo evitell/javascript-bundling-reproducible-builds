@@ -199,6 +199,7 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     deps = None
     pkg_json = f"{builddir}/package.json"
 
+
     has_pkg_json = os.path.isfile(pkg_json)
     if has_pkg_json:
         with open(pkg_json, encoding="utf-8") as f:
@@ -208,14 +209,17 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
 
             if "dependencies" in pkg_json_data.keys():
                 deps = pkg_json_data["dependencies"]
+    else:
+        pkg_json_data = None
 
     return {
         "builddir": builddir,
         "scripts": scripts,
         "has_lockfile": has_lockfile,
         "has_pkg_json": has_pkg_json,
-        "dependencies": deps,
-        "dev_dependencies": dev_deps,
+        # "dependencies": deps,
+        # "dev_dependencies": dev_deps,
+        "package_json":pkg_json_data,
         "install_log": install_log,
         "install_log_out": install_log_out,
         "install_log_err": install_log_err,
@@ -239,7 +243,11 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
     checkout(url, tmpdir, commit)
     res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
     if rmwork:
+        print(f"Removig {tmpdir}")
         subprocess.run(["rm", "-rf", tmpdir], check=True)
+        if os.path.exists(tmpdir):
+            raise Exception(f"failed to remove {tmpdir}")
+    res["tmpdir"] = tmpdir
     return res
 
 
