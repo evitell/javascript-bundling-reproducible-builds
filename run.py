@@ -5,6 +5,7 @@ from github_stats import github_stats
 import tomllib
 import subprocess
 import json
+import os
 
 def build_examples():
     with open("data/examples.toml", "rb") as f:
@@ -19,7 +20,7 @@ def build_examples():
         url = example["url"]
         commit = example["commit"]
         data = utils.build(url,
-                           commit, log_shell=True, rmwork=False, verbose=False)
+                           commit, log_shell=True, rmwork=True, verbose=False)
 
         print("install stdout")
         print(utils.decode_or_none(data["install_log"].stdout))
@@ -59,6 +60,12 @@ if __name__ == "__main__":
                                log_shell=True, rmwork=True, verbose=False)
             print(data["hash"])
 
+            tmpdir = data["tmpdir"]
+            print("tmpdir is", tmpdir)
+
+            if os.path.exists(tmpdir):
+                raise Exception(f"tmpdir {tmpdir} exists")
+
             # Not json serializeable
             data["install_log"] = None
             data["build_log"] = None
@@ -73,6 +80,12 @@ if __name__ == "__main__":
             failed += 1
         except KeyboardInterrupt:
             break
+
+        print("Deleting directories (again)")
+        out_proc = subprocess.run(["rm", "-rvf", "/tmp/run/1000/tmp.*"], check=True, capture_output=True)
+        out = out_proc.stdout.decode()
+        out += out_proc.stderr.decode()
+        print(f"Resulting in out {out}")
 
         if index > MAX:
             break
