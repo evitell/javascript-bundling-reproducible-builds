@@ -235,11 +235,16 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         }
     }
 
-
-def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True) -> dict:
+def mktemp()->str:
     tmpdir = subprocess.run(
-        ["mktemp", "-d"], capture_output=True, check=True).stdout.decode().split("\n")[0]
-    print(tmpdir)
+        ["mktemp", "-d"
+        # "-p", "/tmp"
+        ], capture_output=True, check=True).stdout.decode().split("\n")[0]
+    return tmpdir
+
+def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True,tmpdir=None) -> dict:
+    if tmpdir is None:
+        tmpdir = mktemp()
     checkout(url, tmpdir, commit)
     res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
     if rmwork:
