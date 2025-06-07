@@ -141,6 +141,12 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         # TODO: perhaps the package should be skipped altogether in this case?
         install_cmd = "install"
     preinstall_hashes = gen_hashes(builddir)
+
+    git_log_out_bin = subprocess.run(["git", "log", "-p"], capture_output=True, check=True).stdout
+    git_log_out = git_log_out_bin.decode()
+    commit = git_log_out.split()[1]
+
+
     install_log = subprocess.run(
         ["npm", install_cmd]+shell_args, check=False, cwd=builddir, capture_output=True, env=env)
     if install_log.returncode != 0:
@@ -214,6 +220,7 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
 
     return {
         "builddir": builddir,
+        "commit": commit,
         "scripts": scripts,
         "has_lockfile": has_lockfile,
         "has_pkg_json": has_pkg_json,
