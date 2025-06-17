@@ -114,13 +114,35 @@ def single_hash(hashes: dict) -> str:
 
 def checkout(url: str, workdir: str, commit: str = None):
 
-    subprocess.run(["git", "clone", "--depth=1", url, "build"], check=True, cwd=workdir)
+    subprocess.run(["git", "clone",
+                    # "--depth=1",
+                    url,
+                   "build"], check=True, cwd=workdir)
     if not (commit is None):
         subprocess.run(["git", "checkout", commit], check=True,
                        cwd=os.path.join(workdir, "build"))
 
 
+def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=False):
+    # command = command.split()
+    # print("env", env)
+    print("command", command)
+    print("builddir", builddir)
+
+    args = ["nix-shell", nix_shell,
+            # "--keep-failed",
+            # "-vvvvv",
+            "--pure", ]
+    if verbose:
+        args += []
+    out = subprocess.run(
+        args +
+        ["--command",  f"{command}"], check=False, cwd=builddir, capture_output=True)
+    return out
+
+
 def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True) -> dict:
+    nix_shell_path = os.path.join(os.path.abspath("."), "shell1.nix")
     builddir = os.path.join(workdir, "build")
     if log_shell:
         shell = get_shellpath()
@@ -142,13 +164,17 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         install_cmd = "install"
     preinstall_hashes = gen_hashes(builddir)
 
-    git_log_out_bin = subprocess.run(["git", "log", "-p"], capture_output=True, check=True).stdout
+    git_log_out_bin = subprocess.run(
+        ["git", "log", "-p"], capture_output=True, check=True).stdout
     git_log_out = git_log_out_bin.decode()
     commit = git_log_out.split()[1]
 
+    # install_log = subprocess.run(
+    #    ["npm", install_cmd]+shell_args, check=False, cwd=builddir, capture_output=True, env=env)
+    nix_install_cmd = f"npm {install_cmd} {' '.join(shell_args)}"
+    install_log = run_build_command_with_nix(
+        nix_shell=nix_shell_path, command=nix_install_cmd, builddir=builddir, env=env)
 
-    install_log = subprocess.run(
-        ["npm", install_cmd]+shell_args, check=False, cwd=builddir, capture_output=True, env=env)
     if install_log.returncode != 0:
         print(install_log.stdout.decode())
         print(install_log.stderr.decode())
@@ -158,8 +184,12 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     install_log_out = install_log.stdout.decode()
     install_log_err = install_log.stderr.decode()
 
-    script_out = subprocess.run(
-        ["npm", "run"] + shell_args + [], check=False, capture_output=True, cwd=builddir)
+    # script_out = subprocess.run(
+    #     ["npm", "run"] + shell_args + [], check=False, capture_output=True, cwd=builddir, env=env)
+    nix_npm_run_command = f"npm run {' '.join(shell_args)}"
+    script_out = run_build_command_with_nix(
+        nix_shell=nix_shell_path, command=nix_npm_run_command, builddir=builddir, env=env)
+
     if script_out.returncode != 0:
         print(script_out.stdout.decode())
         print(script_out.stderr.decode())
@@ -170,15 +200,18 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     for elem in script_out.stdout.decode().split("\n"):
         if elem.startswith("available via"):
             continue
-        print(f"elem[:5]={elem[:5]}")
+        # print(f"elem[:5]={elem[:5]}")
         if elem[0:2] == ' '*2 and elem[3] != ' ':
             tmp = elem[2:].split(' ')
             script = tmp[0]
             scripts.append(script)
 
     if "build" in scripts:
-        build_log = subprocess.run(
-            ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
+        # build_log = subprocess.run(
+        #    ["npm", "run"] + shell_args + ["build"], check=True, capture_output=True, cwd=builddir, env=env)
+        nix_build_command = f"npm run {' '.join(shell_args)}"
+        build_log = run_build_command_with_nix(
+            nix_shell=nix_shell_path, command=nix_build_command, builddir=builddir, env=env)
 
         if build_log.returncode != 0:
             print(build_log.stdout.decode())
@@ -205,7 +238,6 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     deps = None
     pkg_json = f"{builddir}/package.json"
 
-
     has_pkg_json = os.path.isfile(pkg_json)
     if has_pkg_json:
         with open(pkg_json, encoding="utf-8") as f:
@@ -226,7 +258,7 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         "has_pkg_json": has_pkg_json,
         # "dependencies": deps,
         # "dev_dependencies": dev_deps,
-        "package_json":pkg_json_data,
+        "package_json": pkg_json_data,
         "install_log": install_log,
         "install_log_out": install_log_out,
         "install_log_err": install_log_err,
@@ -242,14 +274,16 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
         }
     }
 
-def mktemp()->str:
+
+def mktemp() -> str:
     tmpdir = subprocess.run(
         ["mktemp", "-d"
-        # "-p", "/tmp"
-        ], capture_output=True, check=True).stdout.decode().split("\n")[0]
+         # "-p", "/tmp"
+         ], capture_output=True, check=True).stdout.decode().split("\n")[0]
     return tmpdir
 
-def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True,tmpdir=None) -> dict:
+
+def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True, tmpdir=None) -> dict:
     if tmpdir is None:
         tmpdir = mktemp()
     checkout(url, tmpdir, commit)
