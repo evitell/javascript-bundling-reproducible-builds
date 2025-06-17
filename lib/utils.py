@@ -141,6 +141,23 @@ def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=F
     return out
 
 
+def run_build_command_with_podman(container_id, command, builddir, env=None, verbose=False):
+    # command = command.split()
+    # print("env", env)
+    print("command", command)
+    print("builddir", builddir)
+
+    args = ["podman", "run", container_id,
+            "-v", f"{builddir}:{builddir}"
+            ]
+    if verbose:
+        args += []
+    out = subprocess.run(
+        args +
+        [f"{command}"], check=False, cwd=builddir, capture_output=True)
+    return out
+
+
 def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True) -> dict:
     nix_shell_path = os.path.join(os.path.abspath("."), "shell1.nix")
     builddir = os.path.join(workdir, "build")
@@ -295,6 +312,10 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
             raise Exception(f"failed to remove {tmpdir}")
     res["tmpdir"] = tmpdir
     return res
+
+
+def diffoscope_compare(builddir1: str, builddir2: str) -> dict:
+    return
 
 
 if __name__ == "__main__":
