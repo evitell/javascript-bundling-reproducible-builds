@@ -126,18 +126,20 @@ def checkout(url: str, workdir: str, commit: str = None):
 def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=False):
     # command = command.split()
     # print("env", env)
-    print("command", command)
-    print("builddir", builddir)
+    print("(nix) running command:", command)
+    print("(nix) in builddir:", builddir)
 
     args = ["nix-shell", nix_shell,
             # "--keep-failed",
-            # "-vvvvv",
+            "-vvvvv",
             "--pure", ]
     if verbose:
         args += []
+
+    capture_output = True
     out = subprocess.run(
         args +
-        ["--command",  f"{command}"], check=False, cwd=builddir, capture_output=True)
+        ["--run",  f"{command}"], check=False, cwd=builddir, capture_output=capture_output)
     return out
 
 
@@ -147,7 +149,10 @@ def run_build_command_with_podman(container_id, command, builddir, env=None, ver
     print("command", command)
     print("builddir", builddir)
 
-    args = ["podman", "run", container_id,
+    args = ["podman", "run",
+            "--rm", "-it",
+            "--network", "host",
+            container_id,
             "-v", f"{builddir}:{builddir}"
             ]
     if verbose:
@@ -158,14 +163,17 @@ def run_build_command_with_podman(container_id, command, builddir, env=None, ver
     return out
 
 
-def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True) -> dict:
-    nix_shell_path = os.path.join(os.path.abspath("."), "shell1.nix")
+def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True, nix_shell_path: str = None) -> dict:
+    if nix_shell_path is None:
+        nix_shell_path = os.path.join(os.path.abspath("."), "shell1.nix")
     builddir = os.path.join(workdir, "build")
     if log_shell:
         shell = get_shellpath()
         shell_args = [f"--script-shell={shell}"]
     else:
         shell_args = []
+
+    shell_args.append("--verbose")
 
     env = {}
     for k in os.environ.keys():
@@ -300,11 +308,12 @@ def mktemp() -> str:
     return tmpdir
 
 
-def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True, tmpdir=None) -> dict:
+def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True, tmpdir=None, nix_shell_path=None) -> dict:
     if tmpdir is None:
         tmpdir = mktemp()
     checkout(url, tmpdir, commit)
-    res = build_in_workdir(tmpdir, log_shell=log_shell, verbose=verbose)
+    res = build_in_workdir(tmpdir, log_shell=log_shell,
+                           verbose=verbose, nix_shell_path=nix_shell_path)
     if rmwork:
         print(f"Removig {tmpdir}")
         subprocess.run(["rm", "-rf", tmpdir], check=True)
@@ -315,7 +324,38 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
 
 
 def diffoscope_compare(builddir1: str, builddir2: str) -> dict:
-    return
+    cmd = ["diffoscope", builddir1, builddir2,
+           "--exclude=node_modules", "--exclude=.git",
+           " --exclude-directory-metadata=yes",  # seems to detailed
+           "--json", "-"]
+    capture_output = True
+    check = False  # seems to return 0 only if same
+    try:
+
+        out = subprocess.run(cmd, check=check, capture_output=capture_output)
+
+    except subprocess.CalledProcessError as e:
+        print(f"failed to run command {cmd}")
+        try:
+            print("stdout", out.stdout.decode())
+            print("stderr", out.stderr.decode())
+        except:
+            pass
+        print(e)
+        raise e
+        raise Exception
+    res_str = out.stdout.decode()
+    if res_str is None:
+        return {}
+    elif res_str == "":
+        return {}
+    try:
+        data = json.loads(res_str)
+    except json.decoder.JSONDecodeError as e:
+        print(f"failed to load \"{res_str}\"")
+        raise e
+        raise Exception
+    return data
 
 
 if __name__ == "__main__":
