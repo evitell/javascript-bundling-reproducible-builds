@@ -7,6 +7,32 @@ import subprocess
 import json
 import os
 
+
+def test_diffoscope():
+    with open("data/examples.toml", "rb") as f:
+        examples = tomllib.load(f)["pkgs"]
+    # example = examples[1]
+    for index, example in enumerate(examples):
+        url = example["url"]
+        commit = example["commit"]
+        tmpdir1 = utils.mktemp()
+        tmpdir2 = utils.mktemp()
+        shell1 = os.path.abspath("./shell1.nix")
+        shell2 = os.path.abspath("./shell2.nix")
+
+        data1 = utils.build(url=url, commit=commit,
+                            log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir1, nix_shell_path=shell1)
+
+        data2 = utils.build(url=url, commit=commit,
+                            log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir2, nix_shell_path=shell2)
+        builddir1 = os.path.join(tmpdir1, "build")
+        builddir2 = os.path.join(tmpdir2, "build")
+        data = utils.diffoscope_compare(builddir1, builddir2)
+        print(data)
+        with open(f"data/diffoscope_example{index}.json", "w") as f:
+            json.dump(data, f)
+
+
 def build_examples():
     with open("data/examples.toml", "rb") as f:
         examples = tomllib.load(f)["pkgs"]
@@ -15,7 +41,7 @@ def build_examples():
     # url = "https://github.com/lodash/lodash"
     # commit = "f299b52f39486275a9e6483b60a410e06520c538"
     start = 1
-    stop = start+1
+    stop = start+10
     for example in examples[start:stop]:
         url = example["url"]
         commit = example["commit"]
@@ -41,10 +67,9 @@ def build_examples():
         print(data.keys())
 
 
-
-if __name__ == "__main__":
+def build_gh_top():
     MAX = 40
-    SKIP_PREV = True
+    SKIP_PREV = False
     gh_repos = github_stats.get_fetched_data()
     failed = 0
     succeded = 0
@@ -54,7 +79,7 @@ if __name__ == "__main__":
     for index, repo in enumerate(gh_repos):
 
         if not tmpdir_deleted:
-            subprocess.run(["rm", "-rvf", tmpdir], check=True)
+            subprocess.run(["rm", "-rf", tmpdir], check=True)
         # print(repo)
         # exit()
         url = repo["clone_url"]
@@ -86,11 +111,11 @@ if __name__ == "__main__":
             data["install_log"] = None
             data["build_log"] = None
             with open(data_file_path, "w", encoding="utf-8") as f:
-                json.dump(data,f)
+                json.dump(data, f)
             succeded += 1
         except subprocess.CalledProcessError:
             with open(data_file_path, "w", encoding="utf-8") as f:
-                json.dump("failed",f)
+                json.dump("failed", f)
             print(f"failed to build {url}")
             failed += 1
 
@@ -110,4 +135,11 @@ if __name__ == "__main__":
         if index > MAX:
             break
 
-    print(f"Finished with {succeded} succeded and {failed} failed builds ({filenotfound} file not found errors)")
+    print(
+        f"Finished with {succeded} succeded and {failed} failed builds ({filenotfound} file not found errors)")
+
+
+if __name__ == "__main__":
+    # build_examples()
+
+    test_diffoscope()
