@@ -86,10 +86,10 @@ def get_package_info(name):
         raise Exception(f"{name} has never been fetched")
 
 
-def get_all_package_info(fail=False, start=0, stop=-1,log=True):
+def get_all_package_info(fail=False, start=0, stop=-1, log=True):
     names = get_package_names()
     data = []
-    for index,name in enumerate(names[start:stop]):
+    for index, name in enumerate(names[start:stop]):
         if log:
             print(f"processing {index}/{len(names)}")
         try:
@@ -170,11 +170,13 @@ def fetch_all():
     #     print(s,end="")
     #     full_fetch(name)
 
-def get_detailed_stats(package_name:str, version="latest")->dict:
+
+def get_detailed_stats(package_name: str, version="latest") -> dict:
     url = f"https://registry.npmjs.org/{package_name}/latest"
     r = requests.get(url)
     data = r.json()
     return data
+
 
 if __name__ == "__main__":
     fetch_all()
