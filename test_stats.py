@@ -2,6 +2,7 @@ from stats import stats
 # import pandas as pd
 import pickle
 import json
+import os
 
 DATA_DIR = "data"
 # DATA_DIR="data_clean"
@@ -31,7 +32,7 @@ def dump_most_popular():
     print(top_pkgs)
 
 
-if __name__ == "__main__":
+def fetch_detailed_for_all():
     # dump_all()
     # dump_most_popular()
     # exit()
@@ -46,14 +47,107 @@ if __name__ == "__main__":
     for index, pkg in enumerate(pkgs):
         name = pkg["name"]
         print(f"fetching {index}/{n} (name={name})")
+        fp = f"{DATA_DIR}/min100detailed-by-index/min100detailed-{index}.pickle"
+        if os.path.exists(fp):
+            continue
         try:
 
             data = stats.get_detailed_stats(name)
+        except KeyboardInterrupt:
+            raise KeyboardInterrupt
         except:
             data = {"name": name, "status": "failed"}
         detailed.append(data)
 
+        with open(fp, "wb") as f:
+            pickle.dump(data, f)
+
         # break
 
-    with open(f"{DATA_DIR}/min100detailed.json", "w") as f:
-        json.dump(detailed, f)
+    # with open(f"{DATA_DIR}/min100detailed.pickle", "wb") as f:
+    #     pickle.dump(detailed, f)
+
+
+def get_min100_brief():
+    with open(f"{DATA_DIR}/min100.pickle", "rb") as f:
+        pkgs = pickle.load(f)
+        return pkgs
+
+
+def write_detailed_to_single_file():
+    pkgs = get_min100_brief()
+    detailed = []
+
+    n = len(pkgs)
+    for index, pkg in enumerate(pkgs):
+        name = pkg["name"]
+        fp = f"{DATA_DIR}/min100detailed-by-index/min100detailed-{index}.pickle"
+        with open(fp, "rb") as f:
+            data = pickle.load(f)
+        detailed.append(data)
+
+    with open(f"{DATA_DIR}/min100detailed.pickle", "wb") as f:
+        pickle.dump(detailed, f)
+
+
+def get_n_detailed(n):
+    #
+    pkgs = get_min100_brief()
+
+    detailed = []
+
+    for index, pkg in enumerate(pkgs):
+        name = pkg["name"]
+        fp = f"{DATA_DIR}/min100detailed-by-index/min100detailed-{index}.pickle"
+        with open(fp, "rb") as f:
+            data = pickle.load(f)
+        detailed.append(data)
+        if index > n:
+            break
+
+    return detailed
+
+
+def filter_detailed_npm_package_data(elem):
+    # TODO: type may not be git
+
+    remote_check_s = "remote-git+"
+    try:
+        if "repository" in elem.keys():
+            rds = elem["repository"]
+            if type(rds) is dict:
+                repository = rds["url"]
+                if repository.startswith(remote_check_s + "http"):
+                    repository = repository[len(remote_check_s):]
+            elif type(rds) is str:
+                repository = rds
+            else:
+                # TODO: is this possible? Raise exception maybe
+                repository = rds
+        else:
+            repository = None
+
+        if "gitHead" in elem.keys():
+            commit = elem["gitHead"]
+        elif "_rev" in elem.keys():
+            commit = elem["_rev"]
+        else:
+            commit = None
+        name = elem["name"]
+    except Exception as e:
+        print(elem, "\nKEYS:", elem.keys())
+        raise e
+    return {
+        "name": name,
+        "clone_url": repository,
+        "commit": commit
+    }
+
+
+if __name__ == "__main__":
+    # write_detailed_to_single_file()
+
+    data = get_n_detailed(1000)
+    for elem in data:
+        d = filter_detailed_npm_package_data(elem)
+        print(d)
