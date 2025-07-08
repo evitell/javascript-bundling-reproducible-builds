@@ -326,7 +326,8 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
 def diffoscope_compare(builddir1: str, builddir2: str) -> dict:
     cmd = ["diffoscope", builddir1, builddir2,
            "--exclude=node_modules", "--exclude=.git",
-           " --exclude-directory-metadata=yes",  # seems to detailed
+           # seems to detailed, TODO: look up if others use metadata
+           "--exclude-directory-metadata=yes",
            "--json", "-"]
     capture_output = True
     check = False  # seems to return 0 only if same
