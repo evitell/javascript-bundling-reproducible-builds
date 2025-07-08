@@ -113,14 +113,30 @@ def single_hash(hashes: dict) -> str:
 
 
 def checkout(url: str, workdir: str, commit: str = None):
-
-    subprocess.run(["git", "clone",
-                    # "--depth=1",
-                    url,
-                   "build"], check=True, cwd=workdir)
+    cmd1 = ["git", "clone",]
+    if commit is None:
+        cmd1.append("--depth=1")
+        # "--depth=1",
+    cmd1 += [
+        url,
+        "build"]
+    cmd1_s = ' '.join(cmd1)
+    print(f"running \"{cmd1_s}\"")
+    try:
+        subprocess.run(cmd1, check=True, cwd=workdir)
+    except Exception as e:
+        # TODO
+        raise e
     if not (commit is None):
-        subprocess.run(["git", "checkout", commit], check=True,
-                       cwd=os.path.join(workdir, "build"))
+        cmd2 = ["git", "checkout", commit]
+        cmd2_s = ' '.join(cmd2)
+        print(f"running {cmd2}")
+        try:
+            subprocess.run(cmd2, check=True,
+                           cwd=os.path.join(workdir, "build"))
+        except Exception as e:
+            # TODO
+            raise e
 
 
 def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=False):
@@ -140,6 +156,9 @@ def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=F
     out = subprocess.run(
         args +
         ["--run",  f"{command}"], check=False, cwd=builddir, capture_output=capture_output)
+    if out.returncode != 0:
+        print("WARNING, nix-shell failed",
+              out.stdout.decode(), out.stderr.decode())
     return out
 
 
