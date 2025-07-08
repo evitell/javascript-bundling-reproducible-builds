@@ -6,31 +6,82 @@ import tomllib
 import subprocess
 import json
 import os
+import test_stats
 
 
-def test_diffoscope():
-    with open("data/examples.toml", "rb") as f:
-        examples = tomllib.load(f)["pkgs"]
+def test_diffoscope(gh_repos=None):
+    # with open("data/examples.toml", "rb") as f:
+    #     examples = tomllib.load(f)["pkgs"]
+    if not os.path.isdir("data/gh_diffoscope"):
+        os.makedirs("data/gh_diffoscope")
+    if gh_repos is None:
+        gh_repos = github_stats.get_fetched_data()
+
     # example = examples[1]
-    for index, example in enumerate(examples):
-        url = example["url"]
-        commit = example["commit"]
+    # for index, example in enumerate(examples):
+    tmpdir1 = None
+    tmpdir2 = None
+    for index, repo in enumerate(gh_repos):
+        print(f"running for {index+1}:th time")
+        try:
+            url = repo["clone_url"]
+            name = repo["name"]
+        except KeyError as e:
+            print("FAILED", repo)
+            raise e
+        if "commit" in repo.keys():
+            commit = repo["commit"]
+        else:
+            commit = None
+        fp = f"data/gh_diffoscope/{index}_{name}.json"
+        if os.path.exists(fp):
+            print("previously done")
+            continue
+        print(f"name = {name}, = {url}, commit = {commit}")
+        # url = example["url"]
+        # commit = example["commit"]
+
+        if not ((tmpdir1 is None) and (tmpdir2 is None)):
+
+            subprocess.run(["rm", "-rf", tmpdir1], check=True)
+            subprocess.run(["rm", "-rf", tmpdir2], check=True)
+
         tmpdir1 = utils.mktemp()
         tmpdir2 = utils.mktemp()
         shell1 = os.path.abspath("./shell1.nix")
         shell2 = os.path.abspath("./shell2.nix")
-
-        data1 = utils.build(url=url, commit=commit,
-                            log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir1, nix_shell_path=shell1)
-
-        data2 = utils.build(url=url, commit=commit,
-                            log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir2, nix_shell_path=shell2)
+        try:
+            data1 = utils.build(url=url,
+                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir1, nix_shell_path=shell1)
+            commit = data1["commit"]
+            data2 = utils.build(url=url, commit=commit,
+                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir2, nix_shell_path=shell2)
+        except KeyboardInterrupt as e:
+            raise e
+        except:
+            with open(fp, "w") as f:
+                json.dump("buildfail", f)
+                continue
         builddir1 = os.path.join(tmpdir1, "build")
         builddir2 = os.path.join(tmpdir2, "build")
-        data = utils.diffoscope_compare(builddir1, builddir2)
-        print(data)
-        with open(f"data/diffoscope_example{index}.json", "w") as f:
+        try:
+            diff_data = utils.diffoscope_compare(builddir1, builddir2)
+        except:
+            with open(fp, "w") as f:
+                json.dump("diffail", f)
+                continue
+        data = {
+            "build1": data1,
+            "build2": data2,
+            "diff": diff_data,
+        }
+        with open(fp, "w") as f:
             json.dump(data, f)
+
+        subprocess.run(["rm", "-rf", tmpdir1], check=True)
+        subprocess.run(["rm", "-rf", tmpdir2], check=True)
+        if index > 100:
+            break
 
 
 def build_examples():
@@ -141,5 +192,6 @@ def build_gh_top():
 
 if __name__ == "__main__":
     # build_examples()
-
-    test_diffoscope()
+    data = test_stats.get_n_detailed(20)
+    repos = [test_stats.filter_detailed_npm_package_data(x) for x in data]
+    test_diffoscope(repos)
