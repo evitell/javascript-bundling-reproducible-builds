@@ -139,6 +139,11 @@ def checkout(url: str, workdir: str, commit: str = None):
             raise e
 
 
+def fetch_github_archive(url, workdir, commit):
+    # zb https://github.com/debug-js/debug/archive/33330fa8616b9b33f29f7674747be77266878ba6.zip
+    url = f"{url}/archive/{commit}.tar.gz"
+
+
 def run_build_command_with_nix(nix_shell, command, builddir, env=None, verbose=False):
     # command = command.split()
     # print("env", env)
@@ -209,8 +214,12 @@ def build_in_workdir(workdir: str, log_shell: bool = False, verbose: bool = True
     preinstall_hashes = gen_hashes(builddir)
 
     git_log_out_bin = subprocess.run(
-        ["git", "log", "-p"], capture_output=True, check=True).stdout
-    git_log_out = git_log_out_bin.decode()
+        ["git", "log", "-p"], capture_output=True, check=True, cwd=builddir).stdout
+    try:
+        git_log_out = git_log_out_bin.decode(errors="ignore")
+    except Exception as e:
+        print("could not decode", git_log_out_bin)
+        raise e
     commit = git_log_out.split()[1]
 
     # install_log = subprocess.run(
@@ -327,7 +336,7 @@ def mktemp() -> str:
     return tmpdir
 
 
-def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True, tmpdir=None, nix_shell_path=None) -> dict:
+def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: bool = True, tmpdir=None, nix_shell_path=None, ignore_completed_process=False) -> dict:
     if tmpdir is None:
         tmpdir = mktemp()
     checkout(url, tmpdir, commit)
@@ -339,6 +348,9 @@ def build(url: str, commit: str = None, rmwork=True, log_shell=False, verbose: b
         if os.path.exists(tmpdir):
             raise Exception(f"failed to remove {tmpdir}")
     res["tmpdir"] = tmpdir
+    if ignore_completed_process:
+        res["build_log"] = None
+        res["install_log"] = None
     return res
 
 

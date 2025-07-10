@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from json.decoder import JSONDecodeError
 from lib import utils
 from github_stats import github_stats
 import tomllib
@@ -7,6 +8,25 @@ import subprocess
 import json
 import os
 import test_stats
+
+
+def dbg_recursive_type(o, i="", key=None):
+    print(f"{i} {type(o)}")
+    i += " "
+
+    if type(o) is subprocess.CompletedProcess:
+        print("completed_process")
+        print("key= ", key)
+        print(str(o)[0:2000])
+        raise Exception("cproc")
+
+    if type(o) is dict:
+        for k, v in o.items():
+            print(i, k, type(v))
+            dbg_recursive_type(v, i=i+" ", key=k)
+    elif type(o) is list:
+        for v in o:
+            dbg_recursive_type(v, i+" ")
 
 
 def test_diffoscope(gh_repos=None):
@@ -29,6 +49,7 @@ def test_diffoscope(gh_repos=None):
         except KeyError as e:
             print("FAILED", repo)
             raise e
+        commit = None
         if "commit" in repo.keys():
             commit = repo["commit"]
         else:
@@ -52,13 +73,19 @@ def test_diffoscope(gh_repos=None):
         shell2 = os.path.abspath("./shell2.nix")
         try:
             data1 = utils.build(url=url,
-                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir1, nix_shell_path=shell1)
-            commit = data1["commit"]
-            data2 = utils.build(url=url, commit=commit,
-                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir2, nix_shell_path=shell2)
+                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir1, nix_shell_path=shell1, ignore_completed_process=True)
+            logged_commit = data1["commit"]
+            print(
+                f"build 1 succeded, now building {name} for a second time (url = {url}, commit={commit}, logged_commit = {logged_commit})")
+            data2 = utils.build(url=url, commit=logged_commit,
+                                log_shell=False, rmwork=False, verbose=False, tmpdir=tmpdir2, nix_shell_path=shell2, ignore_completed_process=True)
+
         except KeyboardInterrupt as e:
             raise e
-        except:
+        except subprocess.CalledProcessError:
+            logged_commit = None
+            data1 = None
+            data2 = None
             with open(fp, "w") as f:
                 json.dump("buildfail", f)
                 continue
@@ -67,6 +94,8 @@ def test_diffoscope(gh_repos=None):
         try:
             diff_data = utils.diffoscope_compare(builddir1, builddir2)
         except:
+            logged_commit = None
+            data1 = None
             with open(fp, "w") as f:
                 json.dump("diffail", f)
                 continue
@@ -75,8 +104,17 @@ def test_diffoscope(gh_repos=None):
             "build2": data2,
             "diff": diff_data,
         }
+        logged_commit = None
+        data1 = None
+        data2 = None
         with open(fp, "w") as f:
-            json.dump(data, f)
+            try:
+                json.dump(data, f)
+            except TypeError as e:
+                # print(f"failed to dump\n", data)
+                dbg_recursive_type(data)
+
+                raise e
 
         subprocess.run(["rm", "-rf", tmpdir1], check=True)
         subprocess.run(["rm", "-rf", tmpdir2], check=True)
@@ -194,4 +232,8 @@ if __name__ == "__main__":
     # build_examples()
     data = test_stats.get_n_detailed(20)
     repos = [test_stats.filter_detailed_npm_package_data(x) for x in data]
+    for index, _ in enumerate(repos):
+        repos[index]["commit"] = None
+    # print(repos)
+    # exit()
     test_diffoscope(repos)

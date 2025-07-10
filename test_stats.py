@@ -108,17 +108,25 @@ def get_n_detailed(n):
     return detailed
 
 
+def remove_git_prefix(repo_url: str, remote_check_s) -> str:
+    if repo_url.startswith(remote_check_s + "http"):
+        repo_url = repo_url[len(remote_check_s):]
+
+    return repo_url
+
+
 def filter_detailed_npm_package_data(elem):
     # TODO: type may not be git
 
     remote_check_s = "remote-git+"
+    git_check_s = "git+"
     try:
         if "repository" in elem.keys():
             rds = elem["repository"]
             if type(rds) is dict:
                 repository = rds["url"]
-                if repository.startswith(remote_check_s + "http"):
-                    repository = repository[len(remote_check_s):]
+                repository = remove_git_prefix(repository, remote_check_s)
+                repository = remove_git_prefix(repository, git_check_s)
             elif type(rds) is str:
                 repository = rds
             else:
